@@ -1,0 +1,80 @@
+-- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local virtual_input_manager = game:GetService("VirtualInputManager")
+
+-- Knit Services
+local knit = ReplicatedStorage.Packages._Index["acecateer_knit@1.7.1"].knit
+local TowerService = knit.Services.TowerService
+local GameService = knit.Services.GameService
+
+-- RemoteFunctions
+local placeTower = TowerService.RF.PlaceTower
+local EndGameVoteRF = GameService.RF.EndGameVote
+local StartRoundRF = GameService.RF.VoteStartRound
+
+-- Utility: Safe RF call
+local function safeInvoke(rf, ...)
+    if not rf then return false, "No RF" end
+    return pcall(rf.InvokeServer, rf, ...)
+end
+
+
+
+-- Function to place a turret
+local function placeTurret(cf, towerId, turretUid)
+    local ok, res = safeInvoke(placeTower, cf, towerId)
+    if ok then
+        print("✅ Placed turret", towerId, "at", cf.Position, "UID:", turretUid)
+    else
+        warn("❌ Failed to place turret:", res)
+    end
+end
+
+-- Example Task Flow
+local tasks = {
+    -- Placement #1
+    {task = "place", tower_id = 1, position = CFrame.new(-32.4596576171875, 59.64611053466797, -3.0004281997680664), turret_uid = 1, delay = 0.00},
+    -- Placement #2
+    {task = "place", tower_id = 1, position = CFrame.new(-34.66707127191406, 59.64611053466797, -3.404906910748291), turret_uid = 2, delay = 11.02},
+    -- Placement #3
+    {task = "place", tower_id = 1, position = CFrame.new(-36.632965087890625, 59.64611053466797, -2.4893627166748047), turret_uid = 3, delay = 8.57},
+    -- Placement #4
+    {task = "place", tower_id = 3, position = CFrame.new(45.21245193481445, 59.64611053466797, -0.4291820526123047), turret_uid = 4, delay = 8},
+    -- Placement #5
+    {task = "place", tower_id = 2, position = CFrame.new(37.49335861206055, 59.66876220703125, 13.840585708618164), turret_uid = 5, delay = 11},
+    -- Placement #6
+    {task = "place", tower_id = 4, position = CFrame.new(45.78858947753906, 59.64611053466797, 25.258649826049805), turret_uid = 6, delay = 2},
+}
+
+
+-- Main loop
+while true do
+    -- Step 1: Vote replay when replay button visible
+    print("▶ Replaying....")
+    safeInvoke(EndGameVoteRF, "Replay")
+    
+    --Prevent AFK
+    virtual_input_manager:SendKeyEvent(true, Enum.KeyCode.Space, false, nil) 
+    -- Step 2: Start round immediately after replay vote
+    print("▶ Starting round...")
+    safeInvoke(StartRoundRF, "Start")
+
+    -- Step 3: Wait 9s before playing tasks
+    task.wait(4)
+
+    -- Step 4: Run placement tasks sequentially
+    for _, taskData in ipairs(tasks) do
+        print("⏳ Waiting", taskData.delay, "seconds before task...")
+        task.wait(taskData.delay)
+
+        if taskData.task == "place" then
+            placeTurret(taskData.position, taskData.tower_id, taskData.turret_uid)
+        end
+    end
+
+    -- After all tasks, loop back and wait for replay again
+    print("🔄 Cycle complete, waiting for next replay...")
+    task.wait(30)
+end
