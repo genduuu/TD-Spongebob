@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local virtual_input_manager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
 
 -- Knit Services
 local knit = ReplicatedStorage.Packages._Index["acecateer_knit@1.7.1"].knit
@@ -50,31 +51,37 @@ local tasks = {
 
 
 -- Main loop
-while true do
-    -- Step 1: Vote replay when replay button visible
-    print("▶ Replaying....")
-    safeInvoke(EndGameVoteRF, "Replay")
-    
-    --Prevent AFK
-    virtual_input_manager:SendKeyEvent(true, Enum.KeyCode.Space, false, nil) 
-    -- Step 2: Start round immediately after replay vote
-    print("▶ Starting round...")
-    safeInvoke(StartRoundRF, "Start")
-
-    -- Step 3: Wait 9s before playing tasks
-    task.wait(4)
-
-    -- Step 4: Run placement tasks sequentially
-    for _, taskData in ipairs(tasks) do
-        print("⏳ Waiting", taskData.delay, "seconds before task...")
-        task.wait(taskData.delay)
-
-        if taskData.task == "place" then
-            placeTurret(taskData.position, taskData.tower_id, taskData.turret_uid)
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.Keyboard and not gameProcessedEvent then
+        if input.KeyCode == Enum.KeyCode.P then
+         while true do
+            -- Step 1: Vote replay when replay button visible
+            print("▶ Replaying....")
+            safeInvoke(EndGameVoteRF, "Replay")
+            
+            --Prevent AFK
+            virtual_input_manager:SendKeyEvent(true, Enum.KeyCode.Space, false, nil) 
+            -- Step 2: Start round immediately after replay vote
+            print("▶ Starting round...")
+            safeInvoke(StartRoundRF, "Start")
+        
+            -- Step 3: Wait 9s before playing tasks
+            task.wait(4)
+        
+            -- Step 4: Run placement tasks sequentially
+            for _, taskData in ipairs(tasks) do
+                print("⏳ Waiting", taskData.delay, "seconds before task...")
+                task.wait(taskData.delay)
+        
+                if taskData.task == "place" then
+                    placeTurret(taskData.position, taskData.tower_id, taskData.turret_uid)
+                end
+            end
+        
+            -- After all tasks, loop back and wait for replay again
+            print("🔄 Cycle complete, waiting for next replay...")
+            task.wait(30)
+        end  
         end
     end
-
-    -- After all tasks, loop back and wait for replay again
-    print("🔄 Cycle complete, waiting for next replay...")
-    task.wait(30)
-end
+end)
